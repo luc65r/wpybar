@@ -13,6 +13,10 @@ from gi.repository import AppIndicator3 as AppIndicator
 
 
 class MusicLabel(Gtk.Label):
+    __gsignals__ = {
+        "mpd-player": (GObject.SignalFlags.RUN_LAST, None, ()),
+    }
+
     def __init__(self):
         Gtk.Label.__init__(self)
 
@@ -20,14 +24,12 @@ class MusicLabel(Gtk.Label):
         self.mpd.connect("localhost", 6600)
         self.update()
 
-        GObject.signal_new("mpd_player", self, GObject.SignalFlags.RUN_LAST,
-                           GObject.TYPE_PYOBJECT, ())
-        self.connect("mpd_player", self.update)
+        self.connect("mpd-player", self.update)
 
         def thread_work():
             while True:
                 self.mpd.idle("player")
-                self.emit("mpd_player")
+                self.emit("mpd-player")
 
         self.t = threading.Thread(target=thread_work)
         self.t.daemon = True
