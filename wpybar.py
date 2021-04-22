@@ -1,4 +1,5 @@
 import gi
+import i3ipc
 from mpd import MPDClient
 import sys
 import time
@@ -51,9 +52,71 @@ class ClockLabel(Gtk.Label):
         return True
 
 
+class WorkspaceButton(Gtk.Button):
+    def __init__(self, connection, ipc_data):
+        Gtk.Button.__init__(self)
+
+        self.sway = connection
+        self.uid = ipc_data['id']
+        self.num = ipc_data['num']
+        self.name = ipc_data['name']
+        self.focused = ipc_data['focused']
+
+        self.set_label(self.name)
+
+    def do_clicked(self):
+        self.sway.command(f"workspace number {self.num}")
+
+
 class SwayWorkspaces(Gtk.Box):
     def __init__(self):
         Gtk.Box.__init__(self)
+
+        self.sway = i3ipc.Connection()
+
+        ws = self.sway.get_workspaces()
+        for w in ws:
+            wb = WorkspaceButton(self.sway, w.ipc_data)
+            self.pack_start(wb, False, False, 0)
+            wb.show()
+
+        self.sway.on(i3ipc.Event.WORKSPACE_FOCUS, self.on_focus)
+        self.sway.on(i3ipc.Event.WORKSPACE_EMPTY, self.on_empty)
+        self.sway.on(i3ipc.Event.WORKSPACE_INIT, self.on_init)
+
+        self.t = threading.Thread(target=self.sway.main)
+        self.t.daemon = True
+        self.t.start()
+
+    def get_workspace(self, uid):
+        ws = self.get_children()
+        for w in ws:
+            if w.uid == uid:
+                return w
+
+    def on_focus(self, _, e):
+        current = self.get_workspace(e.current.id)
+        old = self.get_workspace(e.old.id)
+        old.focused = False
+        current.focused = True
+
+    def on_empty(self, _, e):
+        w = self.get_workspace(e.current.id)
+        w.destroy()
+
+    def on_init(self, _, e):
+        wb = WorkspaceButton(self.sway, e.current.ipc_data)
+        self.pack_start(wb, False, False, 0)
+
+        i = 0
+        ws = self.get_children()
+        for w in ws:
+            if w.num > wb.num:
+                break
+            i += 1
+
+        self.reorder_child(wb, i)
+        wb.show()
 
 
 class Bar(Gtk.ApplicationWindow):

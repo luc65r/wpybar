@@ -13,6 +13,7 @@
             p.pygobject3
             p.python-language-server
             p.mpd2
+            p.i3ipc
           ]))
           gobject-introspection
           gtk3
